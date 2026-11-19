@@ -1,0 +1,39 @@
+Short description of this testbench.
+This is a testbench for Video Coding for Machines evaluations.
+
+Folders:
+docs/ - Documents, for example this file is there.
+tools/ - Some additional tools, if needed (e.g. ffmpeg executable, selectable in config.yaml; the VTM decoder
+         DecoderAppStatic for decode.decoder: vtm).
+task_models/ - Collection of implemented task models
+data/<sequence_folder>/ - Typically, one ore more of these.
+All_annotations/ - Generic annotations folder (location set by annotations_root in config.yaml).
+
+Sequence naming: <sequence_folder> = <sequence_name>_<characteristics/parameters>, e.g. VolleyballGame_1920x1080_444_LD.
+The sequence name is the part before the first underscore (VolleyballGame). Bitstream file names should also start
+with the sequence name; a mismatch is accepted but gives a warning.
+
+For each data/<sequence_folder>/ folder, there are
+data/<sequence_folder>/QPxx - Multiple QP folders, e.g., QP27/
+
+Each data/<sequence_folder>/QPxx/ - include encoded video bitstream and/or PNGs for each frame. If PNGs exist, frame number is in three or four digits starting from one, before the file extension, for example, <some_name>_0001.png. This folder may include also encoding log file <some_name>.log. It may include bitrate.json {"bitrate": <number>, "unit": <optional free text, e.g. "kbps" or "bpp">}: required when the folder has PNGs only (the bitrate is then used as given); with a bitstream the bitrate comes from the bitstream size.
+
+<annotations_root>/<sequence_name>/ - Machine task annotations folder for one sequence. Any subset of:
+  <sequence_name>_annotations.json          - object detection / instance segmentation / tracking
+  <sequence_name>_masks/                    - masks for each frame (instance segmentation), linked by "mask_color"
+  <sequence_name>_pose_annotations.json     - key point detection
+  <sequence_name>_panoptic_annotations.json - panoptic and semantic segmentation
+  <sequence_name>_panoptic_masks/           - panoptic masks for each frame, linked by "mask_color"
+  <sequence_name>_depth/                    - depth maps as PNGs (a sequence may have only these, no JSON)
+  <sequence_name>_obb_annotations.json      - oriented (rotated) object detection, DOTA v1.0 classes
+  <sequence_name>_lpr_annotations.json      - licence plate recognition (plate boxes + characters)
+  <sequence_name>_bib_annotations.json      - race bib recognition (bib boxes + digits)
+A task is skipped for a sequence whose annotation type for that task does not exist.
+
+data/<sequence_folder>/results/ - Results for this sequence (JSON, RD-curve PNGs, logs/).
+results/summary.json - All results collected into one file.
+configs/anchors.yaml - BD anchors {anchors: {<sequence_name>: <anchor folder>}}; other data folders of that sequence name are
+  test encodings of the same source, compared against the anchor (they inherit its sequence_overrides except qps).
+BD-results/<test>__vs__<anchor>/ - BD comparison of a test encoding against its anchor (bd.json, RD plots, table;
+  extended.json + <test>__vs__<anchor>_extended.md = extended analysis: sub-metric / per-class BD, model agreement).
+BD-results/summary.json - All BD comparisons collected into one file.

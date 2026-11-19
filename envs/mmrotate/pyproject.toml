@@ -1,0 +1,47 @@
+# Separate environment for MMRotate-based oriented object detectors (wrapper 'mmrotate'), e.g. O2-RTDETR from
+# ai4rs (https://github.com/wokaikaixinxin/ai4rs, Apache-2.0; an MMRotate 1.x fork with extra projects).
+# Kept apart from the main venv because the OpenMMLab stack needs mmcv with compiled CUDA ops: the only prebuilt
+# mmcv wheels (no CUDA compiler in the container) are mmcv 2.1.0 for torch 2.1 + CUDA 12.1, Python <= 3.11;
+# mmdet 3.3 (as required by mmrotate) accepts mmcv < 2.2.
+# Create / update:  envs/mmrotate/setup.sh   (clones ai4rs at the pinned commit, then
+#                   UV_PROJECT_ENVIRONMENT=.venv-mmrotate uv sync --project envs/mmrotate, from the repository root)
+# ai4rs is not installed: the worker puts the checkout (envs/mmrotate/ai4rs, git-ignored) on sys.path, because the
+# model code lives in its projects/ folder, which is not part of the mmrotate package.
+# The main pipeline runs task_models/task_models_mmrotate.py --worker with this venv's python
+# (config.yaml: mmrotate_python).
+[project]
+name = "vcmtest-mmrotate"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "torch==2.1.2",
+    "torchvision==0.16.2",
+    "mmcv==2.1.0",
+    "mmengine==0.10.7",
+    "mmdet==3.3.0",
+    "mmsegmentation==1.2.2",    # imported by ai4rs mmrotate.datasets (change-detection transforms)
+    "numpy<2",                  # torch 2.1 / mmcv 2.1 are built against numpy 1.x
+    "opencv-python-headless<4.11",
+    "pycocotools",
+    "matplotlib",
+    "scipy",
+    "six",
+    "ftfy",                     # mmseg imports
+    "regex",
+    "terminaltables",
+    "shapely",
+    "setuptools<70",            # mmengine / mmcv import pkg_resources
+]
+
+[tool.uv]
+package = false
+find-links = ["https://download.openmmlab.com/mmcv/dist/cu121/torch2.1.0/index.html"]
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
+torchvision = { index = "pytorch-cu121" }

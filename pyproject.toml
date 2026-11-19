@@ -1,0 +1,60 @@
+[project]
+name = "vcmtest"
+version = "0.1.0"
+description = "VCM evaluation testbench: machine-vision task accuracy vs bitrate on decoded HEVC/VVC video"
+readme = "README.md"
+license = "BSD-3-Clause-Clear"
+license-files = ["LICENCE"]
+requires-python = ">=3.12,<3.13"
+# Core: decoding, scoring, plots and the torchvision models (Faster R-CNN, Mask R-CNN, ...).
+dependencies = [
+    "torch==2.10.*",
+    "torchvision==0.25.*",
+    "pycocotools",
+    "pyyaml",
+    "matplotlib",
+    "numpy",
+    "pillow",
+    "opencv-python",      # 16-bit PNG frames (Pillow reads them as 8-bit without rounding)
+    "trackeval",          # tracking metrics HOTA / CLEAR (MOTA) / Identity (IDF1); maintained fork kovalp/TrackEval
+]
+
+# Model families are optional: install only those used in configs/config.yaml.
+#   uv sync --extra ultralytics --extra rtdetr      or      uv sync --all-extras
+# Roboflow `inference` (wrapper 'roboflow') has its own environment: envs/roboflow.
+# detectron2 (wrapper 'detectron2') is built from source into this venv: envs/detectron2/setup.sh (docs/MODELS.md).
+[project.optional-dependencies]
+ultralytics = ["ultralytics", "lap>=0.5.12"]   # YOLO26 detection / segmentation / tracking (AGPL-3.0); lap for trackers
+rtdetr = ["transformers", "accelerate"]        # RT-DETR / RT-DETRv2 via Hugging Face
+rfdetr = ["rfdetr"]                            # RF-DETR reference package (Apache-2.0)
+trackers = ["trackers"]                        # Roboflow trackers: ByteTrack, OC-SORT, ... for any detector (Apache-2.0)
+panoptic = ["transformers"]                    # Mask2Former / OneFormer / EoMT panoptic via Hugging Face
+vitpose = ["transformers"]                     # ViTPose / ViTPose++ keypoints via Hugging Face
+depth = ["transformers"]                       # Depth Anything V2 (metric) depth via Hugging Face
+lpr = ["fast-alpr[onnx-gpu]", "onnxruntime-gpu<1.27"]  # <1.27: CUDA 12 build (torch cu128 libs); licence plate detection + OCR (fast-alpr, MIT; ONNX Runtime GPU)
+ocr = ["rapidocr>=3.10", "easyocr>=1.7.2", "onnxruntime-gpu<1.27"]  # scene-text OCR for race bibs: RapidOCR (PP-OCRv5 ONNX, Apache-2.0), EasyOCR (Apache-2.0)
+lpr2 = ["ultralytics", "huggingface_hub", "fast-plate-ocr[onnx-gpu]", "rapidocr>=3.10", "easyocr>=1.7.2", "onnxruntime-gpu<1.27"]  # plate_two_stage: Ultralytics plate detector (e.g. YOLOv11, AGPL-3.0 weights) + fast-plate-ocr / RapidOCR / EasyOCR reader
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+# CVAT tools: maintained in another repository (copies here, not released)
+extend-exclude = ["release", "envs/mmrotate/ai4rs", "tools/*cvat*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "D101", "D102", "D103"]   # D1xx: public API docstrings
+# B905: zip() without strict= - the zipped sequences have equal length by construction (frames, points, classes)
+ignore = ["B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501", "D101", "D102", "D103"]   # dev-only (not released)

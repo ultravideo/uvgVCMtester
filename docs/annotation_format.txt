@@ -1,0 +1,144 @@
+Annotations format in <annotations_root>/<sequence_name>/<sequence_name>_annotations.json (see folder_layout.txt)
+Include object detection annotations with "class_id", bounding box coordinates, "iscrowd" (optional; a missing "iscrowd" means 0). Optionally "class_name" (informative only). Optionally, "track_id" for tracking, "polygon" and "mask_color". "polygon" is instance mask and has polygon points in a list [x1,y1,x2,y2,...], normalised to [0, 1] like the bounding box coordinates. "mask_color" refers to the corresponding mask for that frame in the <sequence_name>_masks/ folder (e.g. VolleyballGame_masks/). The keys, "1" and "2" in the example below are frame numbers. JSON may include "version" key, as below.
+
+{
+  "version": "1.0",
+  "1": [
+    {
+      "class_id": 1,
+      "x_min": 0.562984,
+      "x_max": 0.62898,
+      "y_min": 0.54725,
+      "y_max": 0.78412,
+      "track_id": 7,
+      "iscrowd": 0,
+      "mask_color": [
+        155,
+        155,
+        155
+      ]
+    },
+    {
+      "class_id": 1,
+      "x_min": 0.422471,
+      "x_max": 0.477151,
+      "y_min": 0.506102,
+      "y_max": 0.772398,
+      "track_id": 4,
+      "iscrowd": 0,
+      "mask_color": [
+        255,
+        255,
+        155
+      ]
+    }
+    ],
+  "2": [],
+
+Mask PNGs (<sequence_name>_masks/ and <sequence_name>_panoptic_masks/): one PNG per frame, mask_0001.png ...; RGB or RGBA
+(alpha is ignored). Pixel colours are in RGB order, matching "mask_color" [R, G, B] in the JSON. Colours that no
+object of that frame uses are background / unlabelled.
+
+Panoptic and semantic segmentation annotations in <annotations_root>/<sequence_name>/<sequence_name>_panoptic_annotations.json
+with masks in <sequence_name>_panoptic_masks/. Same JSON layout as above (frame keys, optional "version"); each
+entry is one segment of the frame: "class_id", "class_name", "track_id" (segment id), "mask_color", bounding box
+coordinates, optional "iscrowd" (missing = 0). "class_id" uses the official COCO panoptic category ids (133 categories,
+task_models/labels_panoptic.py): 80 things with the original COCO ids 1..90 (with gaps; these differ from the
+contiguous ids of the detection JSON above for classes after "fire hydrant", e.g. stop sign 13 here, 12 there) and
+53 stuff classes with ids 92..200, e.g. 149 road, 184 tree-merged. "mask_color" is required; "track_id",
+"class_name" and the box are informative only.
+Things are countable objects (instances); stuff classes are amorphous regions (one segment per class and frame).
+Pixels with a colour that no segment uses are unlabelled (void) and are ignored by the metrics.
+The panoptic masks are non-overlapping and need not equal the instance masks in <sequence_name>_masks/ (e.g. an
+object partly behind a fence loses those pixels to the fence). Semantic segmentation uses the same annotations,
+with all segments of a class merged (per-pixel class label).
+
+Example:
+{
+  "version": "1.0",
+  "1": [
+    {"class_name": "road", "class_id": 149, "track_id": 29, "mask_color": [155, 205, 155],
+     "x_min": 0.0, "y_min": 0.30, "x_max": 1.0, "y_max": 1.0},
+    {"class_name": "car", "class_id": 3, "track_id": 4, "mask_color": [255, 255, 155],
+     "x_min": 0.549331, "y_min": 0.398565, "x_max": 0.566805, "y_max": 0.424213}
+  ],
+  "2": [],
+
+
+Keypoint (pose) annotations in <annotations_root>/<sequence_name>/<sequence_name>_pose_annotations.json. Same JSON layout
+(frame keys, optional "version"); each entry is one person:
+- "class_id": 1 (person).
+- "keypoints": 51 values = the 17 COCO keypoints in COCO order (nose, left_eye, right_eye, left_ear, right_ear,
+  left_shoulder, right_shoulder, left_elbow, right_elbow, left_wrist, right_wrist, left_hip, right_hip,
+  left_knee, right_knee, left_ankle, right_ankle) as x, y, v. x and y are normalised to [0, 1] like the boxes
+  above (a keypoint may lie slightly outside the image). v = 0 not labelled (x, y are then meaningless and
+  ignored), 1 labelled but not visible (occluded), 2 labelled and visible. "Left" is the person's own left.
+- "area": the person's segmentation area as a fraction of the image area (mask pixels / image pixels),
+  i.e. the COCO "area" normalised; scale it by W x H of the evaluated frames. Used by the OKS of COCO keypoint AP.
+- Optional "iscrowd" (missing = 0). No bounding box is needed.
+Example:
+{
+  "version": "1.1",
+  "1": [
+    {"class_id": 1, "area": 0.022333,
+     "keypoints": [0.196602, 0.251574, 0, 0.190203, 0.241269, 0, ..., 0.161966, 0.595815, 2]}
+  ],
+  "2": []
+}
+
+Oriented object detection annotations in <annotations_root>/<sequence_name>/<sequence_name>_obb_annotations.json. Same JSON
+layout (frame keys, optional "version"); each entry is one object: "class_id" = DOTA v1.0 category id, 0-based, in
+the order of task_models/labels_dota.py (0 plane, 1 ship, 2 storage tank, 3 baseball diamond, 4 tennis court,
+5 basketball court, 6 ground track field, 7 harbor, 8 bridge, 9 large vehicle, 10 small vehicle, 11 helicopter,
+12 roundabout, 13 soccer ball field, 14 swimming pool), and "bbox" = the 4 corner points [[x, y], ...] of the
+rotated box, normalised to [0, 1] like the other boxes (any start corner and direction). Corners may lie outside
+[0, 1] for objects cut by the frame edge (full object extent). Optional "iscrowd" (missing = 0).
+
+Example:
+{
+  "version": "1.0",
+  "1": [
+    {"class_id": 10, "bbox": [[0.71267, 0.977583], [0.727843, 0.97683], [0.728052, 0.990084], [0.712878, 0.990837]]}
+  ]
+}
+
+Licence plate recognition annotations in <annotations_root>/<sequence_name>/<sequence_name>_lpr_annotations.json. Same JSON
+layout (frame keys, optional "version"); each entry is one plate: "track_id" (one id per physical plate), the
+axis-aligned plate box "x_min", "x_max", "y_min", "y_max" normalised to [0, 1], and "plate" = the plate characters
+visible in that frame (a plate cut by the frame edge has only its visible part, e.g. "48" of "HTI748").
+
+Example:
+{
+  "version": "1.1",
+  "1": [
+    {"track_id": 1, "x_min": 0.490664, "x_max": 0.505586, "y_min": 0.428843, "y_max": 0.436329, "plate": "ZPN720"}
+  ]
+}
+
+Race bib recognition annotations in <annotations_root>/<sequence_name>/<sequence_name>_bib_annotations.json. Same layout as
+the licence plate JSON with "bib" in place of "plate": "track_id" (one id per bib / competitor), the axis-aligned
+bib box "x_min", "x_max", "y_min", "y_max" normalised to [0, 1] (the full bib, also when partly hidden), and "bib" =
+the digits visible in that frame (a partly hidden bib has only its visible digits, e.g. "15" of "156").
+
+Example:
+{
+  "version": "1.1",
+  "1": [
+    {"track_id": 1, "x_min": 0.894289, "x_max": 0.918299, "y_min": 0.389421, "y_max": 0.426241, "bib": "196"}
+  ]
+}
+
+Depth estimation ground truth in <annotations_root>/<sequence_name>/<sequence_name>_depth/ (no JSON; a sequence may have
+only this folder). One PNG per frame:
+- File names <stem>_NNNN.png (or _NNN), e.g. depth_0001.png ... depth_0600.png: the number is the frame number
+  (1-based, as the decoded frames and the JSON frame keys); all files share one stem.
+- 16-bit grayscale PNG (single channel, e.g. PIL mode "I;16"); the pixel value is the metric depth in millimetres
+  (1..65535 mm, i.e. up to 65.5 m). 0 = no depth (invalid pixel), ignored by the metrics. Pixels below the config
+  value depth_min_mm (also per sequence; default 0) are ignored too, e.g. 300 for a sensor's minimum range.
+- Any size: if it differs from the decoded frames it is resized to the frame size with nearest neighbour (keep
+  the aspect ratio of the video).
+- Frames scored = the frames with a depth PNG; each needs a decoded frame (error otherwise). Decoded frames
+  without a depth PNG are not scored (warning).
+- There is no "version" key: the scores are keyed by the SHA-256 of the PNGs, so changed depth maps are rescored.
+Example: UnderPark_depth/depth_0001.png ... depth_0600.png, 1920x1080, 16-bit, ZED 2i depth in mm (densified),
+scored with depth_min_mm 300.

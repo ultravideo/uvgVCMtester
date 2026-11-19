@@ -1,0 +1,29 @@
+# Python / environments
+.venv/
+.venv-roboflow/
+.venv-mmrotate/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Inputs, model weights and all outputs (results are never committed)
+/data/
+/All_annotations/
+/results/
+/BD-results/
+/weights/
+/task_models/weights/
+*.pt
+*.pth
+*.pkl
+*.safetensors
+
+# Local tool binaries (ffmpeg, VTM decoder) and the MMRotate source checkout
+/tools/*
+!/tools/*.py
+!/tools/*.sh
+!/tools/*.md
+/envs/mmrotate/ai4rs/
+/envs/detectron2/src/
+/envs/detectron2/dist/

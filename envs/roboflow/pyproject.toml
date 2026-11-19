@@ -1,0 +1,20 @@
+# Separate environment for Roboflow `inference` (RF-DETR models). Kept apart from the main venv
+# because inference pins transformers<5.16, numpy<2.4, pillow<13, opencv<4.13.
+# Create / update (from the repository root):  UV_PROJECT_ENVIRONMENT=.venv-roboflow uv sync --project envs/roboflow
+# The main pipeline runs the RF-DETR wrapper (task_models/task_models_roboflow.py) as a worker
+# subprocess with this venv's python (config.yaml: roboflow_python).
+[project]
+name = "vcmtest-roboflow"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch==2.10.*",
+    "torchvision==0.25.*",
+    "inference==1.8.4",
+    "pycocotools",
+    "numpy",
+    "pillow",
+]
+
+[tool.uv]
+package = false

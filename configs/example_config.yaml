@@ -1,0 +1,133 @@
+# vcmtest example configuration. Copy it to configs/config.yaml (the default config) and edit:
+#   cp configs/example_config.yaml configs/config.yaml
+# Paths are relative to the repository root unless absolute. Unknown keys are an error.
+# All options: docs/CONFIGURATION.md; models: docs/MODELS.md; metrics: docs/METRICS.md.
+
+data_root: data                      # one folder per sequence: data/<sequence_folder>/QPxx/
+annotations_root: All_annotations    # one sub-folder per sequence name (sequence folder name up to the first "_")
+results_root: results                # results/summary.json, results/logs/
+tools_dir: tools
+weights_dir: weights                 # model weights are downloaded here
+ffmpeg: ffmpeg                       # executable name in tools_dir; null = ffmpeg from PATH (>= 7.1 for VVC)
+
+sequences: all                       # "all" or a list of folder names under data_root
+qps: all                             # "all" or a list, e.g. [22, 47]
+framerate: null                      # fallback if data/<seq>/info.json has no "framerate"
+
+device: cuda:0
+seed: 0
+
+# Plotted metric variants (both variants are always stored in the results):
+ap_average: class                    # detection / instance seg AP: class (COCO mean of per-class AP) | object
+                                     # (object-weighted: one PR curve over all classes)
+hota_average: class                  # tracking HOTA: class (class average) | object (TrackEval detection-averaged:
+                                     # counts summed over the classes, each weighs by its detections)
+pq_average: all                      # panoptic PQ: all (panopticapi: classes with TP+FP+FN > 0) | gt (only the
+                                     # classes in the ground truth)
+depth_eval: raw                      # depth AbsRel: raw (metric models as is; relative models not plotted) |
+                                     # aligned (per-frame scale+shift fit, all models)
+depth_min_mm: 0                      # depth GT below this (mm) is ignored (0 is always ignored); e.g. a stereo
+                                     # camera's minimum range, where the GT is extrapolated rather than measured
+obb_score: dota                      # oriented detection AP: dota (DOTA classes as annotated) | vehicle (large +
+                                     # small vehicle merged into one class)
+lpr_iou: 0.5                         # plate / bib recognition: box IoU for a prediction to match a GT box
+
+# Network input size per task and model id (as printed by --plan), on every sequence; multiple of 32; the model id
+# gets "-<N>px". Supported by the ultralytics, rfdetr and rtdetr wrappers. Larger inputs help with small objects.
+input_size: {}
+#  detection: {ultralytics-yolo26m.pt-thr0.05: 1280, rfdetr-rfdetr-medium-thr0.05: 1152}
+#  tracking: {ultralytics-yolo26m.pt-bytetrack: 1280}
+
+# Per-sequence settings (key = sequence folder name). Any of: framerate, annotations (sub-folder, if it differs
+# from the sequence name), qps ('all' or a list; also limits that sequence's results and plots), models
+# ({<task>: [<model_id>, ...]}: a subset of the task's models), classes ([<name>, ...] or {<task>: [...]}: only these
+# classes scored), tasks ([<task>, ...]: only these tasks run), input_size (as above; null = the model's default),
+# obb_classes, lpr_iou, depth_min_mm, remove_depth_maps and the metric variants above.
+sequence_overrides: {}
+#  MySequence_1920x1080_420_10b_VTM_RA:
+#    framerate: 30
+#    qps: [27, 32, 37, 42, 47]
+#    classes: [car]                  # e.g. when other classes have only one or two objects
+#    tasks: [detection, tracking]
+#    input_size: {detection: {rtdetr-rtdetr_v2_r18vd-thr0.05: 960}}
+
+decode:
+  matrix: bt709                      # bt709 | bt601 | bt2020
+  range: full                        # full | limited
+  png_bit_depth: 8                   # 8 | 16
+  verify_md5: true                   # check decoded planes against encoder log MD5s, when available
+  remove_frames: false               # same as --remove-frames
+  min_free_gb: 20
+  timeout_s: 3600                    # per bitstream
+  decoder: ffmpeg                    # ffmpeg | vtm (VVC reference decoder DecoderAppStatic, raw YUV piped to ffmpeg)
+  decoder_executable: null           # null = the decoder's default in tools_dir; or a path
+
+plot:
+  log_x: false                       # bitrate axis linear (true = log scale)
+
+bd:                                  # BD-rate / BD-accuracy of test encodings against an anchor encoding
+  enabled: false                     # BD step after the sequences of a run (--bd: only the BD step)
+  anchors_file: null                 # YAML file {anchors: {<sequence_name>: <anchor folder>}}, e.g. configs/anchors.yaml
+  anchors: {}                        # {<sequence_name>: <anchor folder>}; other folders <sequence_name>_* are test encodings
+                                     # and inherit the anchor's sequence_overrides (except qps)
+  qps: {}                            # points used per pair, e.g. {<test folder>: {anchor: [...], test: [...]}}
+  min_points: 4                      # Pareto points needed on each curve (fewer -> n/a)
+  log_x: true                        # BD plots: log bitrate axis
+  extended: true                     # extended analysis per pair: sub-metric / per-class BD, model agreement
+  out_dir: BD-results
+
+inference:
+  timeout_s: 7200                    # per (sequence, QP, model)
+  remove_depth_maps: false           # delete predicted depth maps after scoring (same as --remove-depth-maps)
+
+# Tasks and models. A task runs on a sequence only if its annotations exist. score_threshold: null = the library
+# default; for AP use a low threshold (0.05): library defaults of 0.25-0.5 cut recall and cap AP. Trackers need the
+# low-score detections (0.1). Model families are optional extras (pyproject.toml); --plan reports missing ones.
+tasks:
+  - task: detection
+    models:
+      - {wrapper: torchvision, model: fasterrcnn_resnet50_fpn_v2, score_threshold: null}
+      - {wrapper: ultralytics, model: yolo26m.pt, score_threshold: 0.05}
+      - {wrapper: rtdetr, model: PekingU/rtdetr_v2_r18vd, score_threshold: 0.05}
+      - {wrapper: rfdetr, model: rfdetr-medium, score_threshold: 0.05}
+#     - {wrapper: detectron2, model: faster_rcnn_X_101_32x8d_FPN_3x.yaml, score_threshold: null}  # envs/detectron2/setup.sh
+  - task: instance_segmentation
+    models:
+      - {wrapper: torchvision, model: maskrcnn_resnet50_fpn_v2, score_threshold: null}
+      - {wrapper: ultralytics, model: yolo26x-seg.pt, score_threshold: 0.05}
+      - {wrapper: rfdetr, model: rfdetr-seg-medium, score_threshold: 0.05}
+  - task: tracking
+    models:
+      # Ultralytics detector + tracker YAML, or Roboflow `trackers` (bytetrack, ocsort, sort, botsort, cbiou) on any
+      # detection wrapper
+      - {wrapper: ultralytics, model: yolo26m.pt, tracker: bytetrack.yaml, score_threshold: null}
+      - {wrapper: rfdetr, model: rfdetr-medium, tracker: bytetrack, score_threshold: 0.1}
+  - task: keypoints
+    models:
+      - {wrapper: torchvision, model: keypointrcnn_resnet50_fpn, score_threshold: null}
+      - {wrapper: ultralytics, model: yolo26x-pose.pt, score_threshold: null}
+      # top-down ViTPose on the person boxes of a detection model above (its model id)
+      - {wrapper: hf_vitpose, model: usyd-community/vitpose-plus-large, detector: rfdetr-rfdetr-medium-thr0.05,
+         score_threshold: null}
+# Further tasks (uncomment; see docs/MODELS.md for the models and their extras):
+#  - task: panoptic_segmentation      # one panoptic prediction serves panoptic and semantic segmentation
+#    models:
+#      - {wrapper: hf_panoptic, model: facebook/mask2former-swin-large-coco-panoptic, score_threshold: null}
+#  - task: semantic_segmentation
+#    models:
+#      - {wrapper: hf_panoptic, model: facebook/mask2former-swin-large-coco-panoptic, score_threshold: null}
+#  - task: depth                      # AbsRel, lower is better
+#    models:
+#      - {wrapper: hf_depth, model: depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf, score_threshold: null}
+#  - task: oriented_detection         # DOTA v1.0 classes
+#    models:
+#      - {wrapper: ultralytics, model: yolo26m-obb.pt, score_threshold: 0.05}
+#  - task: plate_recognition
+#    models:
+#      - {wrapper: fast_alpr, model: yolo-v9-t-640-license-plate-end2end, ocr: cct-s-v2-global-model,
+#         score_threshold: 0.05}
+#      - {wrapper: plate_two_stage, model: morsetechlab/yolov11-license-plate-detection/license-plate-finetune-v1s.pt,
+#         ocr: "fast_plate_ocr:cct-s-v2-global-model", score_threshold: 0.05}   # uv sync --extra lpr2
+#  - task: bib_recognition
+#    models:
+#      - {wrapper: rapidocr, model: PP-OCRv5-server, score_threshold: 0.05}
