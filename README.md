@@ -6,9 +6,9 @@ every frame, scores them against annotations (COCO AP, HOTA/MOTA, ...), plots **
 Developed and tested with the comprehensive [UVG-VCM benchmarking dataset](https://github.com/ultravideo/UVG-VCM).
 
 ```
-                                                        ┌─▶ RD curves
+                                                         ┌─▶ RD curves
   VIDEO ──(decode)──▶ Task predictions ──▶ Evaluation ──┼─▶ BD-rate
-                                                        └─▶ Result analysis
+                                                         └─▶ Result analysis
 ```
 
 ## Contents
