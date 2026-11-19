@@ -1,16 +1,15 @@
 # uvgVCMtester — VCM evaluation testbench
 
 Intended for Video Coding for Machines (VCM) experiments. Measures how well machine-vision networks perform on **compressed video**: decodes AVC/HEVC/VVC/other bitstreams at several QPs (or takes already reconstructed PNG frames), runs task networks (object detection, instance segmentation, multi-object tracking and more) on
-every frame, scores them against annotations (COCO AP, HOTA/MOTA, ...), plots **rate–accuracy curves** (accuracy vs bitrate), calculates BD-rates, analyzes results (flags non-monotonic behavior, analyzes results consistency etc.). Developed and tested with the comprehensive [UVG-VCM benchmarking dataset](https://github.com/ultravideo/UVG-VCM).
+every frame, scores them against annotations (COCO AP, HOTA/MOTA, ...), plots **rate–accuracy curves** (accuracy vs bitrate), **calculates BD-rates**, **analyzes results** (flags non-monotonic behavior, results consistency etc.).
+
+Developed and tested with the comprehensive [UVG-VCM benchmarking dataset](https://github.com/ultravideo/UVG-VCM).
 
 ```
-                                                                                                       ┌─▶ RD curves
-video (bitstreams or PNGs) ──(decode bitstreams)──▶ task network predictions ──▶ accuracy evaluation ──┼─▶ BD-rate
-                                                                                                       └─▶ result analysis
+                                                        ┌─▶ RD curves
+  VIDEO ──(decode)──▶ Task predictions ──▶ Evaluation ──┼─▶ BD-rate
+                                                        └─▶ Result analysis
 ```
-
-Every stage is cached and resumable: rerunning skips finished work, and a run with new QPs or models extends the
-existing curves.
 
 ## Contents
 
