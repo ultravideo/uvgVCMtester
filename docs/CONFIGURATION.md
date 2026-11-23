@@ -33,6 +33,34 @@ Contents: [Paths and environment](#paths-and-environment) · [Sequences and QPs]
 | `device` | `cuda:0` | inference device |
 | `seed` | `0` | random seed |
 
+### Several data roots
+
+Each sequence's results stay in its own folder (`<data_root>/<seq>/results/`), but three things are shared by name
+or by folder and do **not** follow `data_root`:
+
+- **Anchors** (`bd.anchors_file`, `bd.anchors`) name folders, not paths: they are looked up under the current
+  `data_root`. An anchor folder that is not there gives a warning and its pairs are skipped (a test in another data
+  root cannot be compared with it); when most anchors are missing, one warning says the anchors seem to belong to
+  another data root.
+- **`results/summary.json`** is rebuilt from the current `data_root` only: switching the root replaces its
+  sequences (their results files are kept). It records `data_root`, and a switch is warned.
+- **`BD-results/`** keeps the pairs of every run: pairs of two data roots would be mixed in `summary.json` and
+  `overview.md` (warned; `data_roots` lists them), and a pair folder of the same name is replaced (warned).
+
+`sequence_overrides` are keyed by folder name, so a folder of the same name in another data root gets the same
+overrides. To keep a second data root separate, give it its own config with its own outputs:
+
+```yaml
+# configs/config_data2.yaml
+data_root: data2
+results_root: results_data2
+bd:
+  anchors_file: configs/anchors_data2.yaml
+  out_dir: BD-results_data2
+```
+
+and run `python -m vcmtest configs/config_data2.yaml`.
+
 ## Sequences and QPs
 
 | Key | Default | Meaning |

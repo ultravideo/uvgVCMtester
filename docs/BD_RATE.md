@@ -30,6 +30,15 @@ anchors:
 - Every other folder of that sequence name is a **test** and is compared against the anchor. The anchor itself is
   never a test, and a test is compared only against its own anchor.
 
+### Several data roots
+
+The anchors name folders, not paths: they always refer to the current `data_root`. Anchor and test must be in the
+same data root. With a second data root, give it its own anchors file and outputs (`bd.anchors_file`, `bd.out_dir`,
+`results_root`), otherwise `BD-results/summary.json` and `overview.md` average over the pairs of both roots. The data
+root is recorded in `bd.json`, `summary.json` and `overview.md`; most anchors missing from `data_root`, a pair
+replaced by one from another data root, and an output folder with several data roots are warned. Details and an
+example config: [CONFIGURATION.md](CONFIGURATION.md#several-data-roots).
+
 ## Anchors change the run configuration of the tests
 
 So that both sides are comparable by default, a test folder **inherits the anchor's `sequence_overrides`** when the

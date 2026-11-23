@@ -102,7 +102,8 @@ only labels for the pipeline: `QP0`, `QP1`, ... work as rate points (the QP-orde
 ## Summary
 
 `results/summary.json`: the results files of all sequences under `data_root`, condensed into one file and rewritten at
-the end of every run. Per sequence: results file, frame rate, warnings and errors; per task: metric and annotation
+the end of every run. It records the `data_root` it was collected from; rewriting it from another data root replaces
+its sequences and is warned ([several data roots](CONFIGURATION.md#several-data-roots)). Per sequence: results file, frame rate, warnings and errors; per task: metric and annotation
 version; per model: score threshold, weights sha256 and per QP the bitrate and the plotted value.
 
 ## BD comparisons
@@ -111,12 +112,12 @@ Written to `bd.out_dir` (default `BD-results/`); anchors, method and options: [B
 
 | File | Content |
 |---|---|
-| `<test>__vs__<anchor>/bd.json` | per task and model: BD-rate %, BD-accuracy pp, the points of both sides, Pareto / removed QPs, the overlap intervals, n/a or skip reasons; per-task mean over the models; settings checked; encodings (codec, profile, pixel format, frame size) of both sides, with `frame_size_note` when the sizes differ or are unknown; vcmtest version |
+| `<test>__vs__<anchor>/bd.json` | per task and model: BD-rate %, BD-accuracy pp, the points of both sides, Pareto / removed QPs, the overlap intervals, n/a or skip reasons; per-task mean over the models; settings checked; encodings (codec, profile, pixel format, frame size) of both sides, with `frame_size_note` when the sizes differ or are unknown; `data_root` (where both results files were read); vcmtest version |
 | `<test>__vs__<anchor>/<task>_rd.png`, `rd_per_model/` | anchor solid, test dashed, same colour per model; Pareto points filled and joined, removed points hollow; log bitrate axis (`bd.log_x`) |
 | `<test>__vs__<anchor>/<test>__vs__<anchor>.md` | tables of the BD numbers per task |
 | `<test>__vs__<anchor>/extended.json`, `<test>__vs__<anchor>_extended.md` | extended analysis (`bd.extended`, default on; same results, no rescoring), see below |
-| `summary.json` | all BD comparisons collected into one file, with an `overview` |
-| `overview.md` | cross-sequence overview |
+| `summary.json` | all BD comparisons collected into one file, with an `overview`; `data_root` per pair and `data_roots` (more than one = pairs of several data roots mixed, warned) |
+| `overview.md` | cross-sequence overview; names the data root(s) |
 
 **Extended analysis:**
 1. BD of the sub-metrics per model: components of the plotted value (detection AP50 / AP75 / APs / APm / APl,

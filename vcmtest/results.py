@@ -18,7 +18,7 @@ from pathlib import Path
 
 from . import metric_options as _mo
 from .bitrate import bitrate_info
-from .config import model_id, resolve_path, sequence_depth_min_mm, sequence_lpr_iou, task_class_ids
+from .config import model_id, project_relative, resolve_path, sequence_depth_min_mm, sequence_lpr_iou, task_class_ids
 from .infer import predictions_path
 from .score import PANOPTIC_SCORE_VERSION, SCORE_VERSION, scores_path
 
@@ -409,6 +409,18 @@ def _log_table(res: dict) -> None:
                 log.warning(f"    QP{p['qp']:<3} not plotted: {p['error']}")
 
 
+def _summary_data_root(path: Path) -> str | None:
+    """Data root an existing summary.json was collected from (recorded, or derived from its first results file for
+    summaries written before it was recorded); None if unknown."""
+    old = _read_json(path) if path.is_file() else None
+    if not old:
+        return None
+    if old.get("data_root"):
+        return old["data_root"]
+    files = [s.get("results_file") for s in (old.get("sequences") or {}).values() if s.get("results_file")]
+    return project_relative(Path(files[0]).parents[2]) if files else None
+
+
 def write_summary(cfg: dict) -> Path:
     """Collect all data/<seq>/results/<seq>_results.json into <results_root>/summary.json."""
     data_root = resolve_path(cfg["data_root"])
@@ -438,8 +450,13 @@ def write_summary(cfg: dict) -> Path:
         seqs[r["sequence"]] = {"results_file": str(rel), "generated": r.get("generated"),
                                "framerate": r.get("framerate"), "tasks": tasks,
                                "warnings": r.get("warnings", []), "errors": r.get("errors", [])}
-    summary = {"generated": datetime.now().isoformat(timespec="seconds"), "sequences": seqs}
+    dr = project_relative(data_root)
     out = resolve_path(cfg["results_root"]) / "summary.json"
+    prev = _summary_data_root(out)
+    if prev is not None and prev != dr:
+        log.warning(f"{out} was collected from data root {prev}; now rewritten from {dr} (the sequences of {prev} "
+                    f"are no longer in it; their results files are kept): use a separate results_root per data root")
+    summary = {"generated": datetime.now().isoformat(timespec="seconds"), "data_root": dr, "sequences": seqs}
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
         json.dump(summary, f, indent=1)

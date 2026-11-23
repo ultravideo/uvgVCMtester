@@ -180,6 +180,12 @@ def resolve_path(p: str | Path) -> Path:
     return p if p.is_absolute() else (PROJECT_ROOT / p)
 
 
+def project_relative(p: str | Path) -> str:
+    """A path as recorded in output files: relative to the project root when inside it, else absolute."""
+    p = resolve_path(p).resolve()
+    return str(p.relative_to(PROJECT_ROOT)) if p.is_relative_to(PROJECT_ROOT) else str(p)
+
+
 # Plotted-metric options (registry: vcmtest/metric_options.py): value -> field in the scores result
 def _option_fields(name: str) -> dict:
     return {k: v.stats for k, v in _metric_options.METRIC_OPTIONS[name].variants.items()}
@@ -692,11 +698,19 @@ def load_anchors(cfg: dict) -> tuple[dict[str, str], list[str]]:
         else:
             anchors[rn] = folder
     data_root = resolve_path(cfg["data_root"])
+    missing = []
     for rn, folder in sorted(anchors.items()):
         if not isinstance(folder, str) or not folder.startswith(f"{rn}_"):
             raise ConfigError(f"anchor of '{rn}' must be a data folder named {rn}_..., got {folder!r}")
         if not (data_root / folder).is_dir():
-            warnings.append(f"anchor folder {folder} (of {rn}) not found in {data_root}")
+            missing.append(folder)
+    if len(anchors) >= 2 and 2 * len(missing) > len(anchors):
+        # most anchors missing: the anchors were written for another data root (folder names, not paths)
+        warnings.append(f"{len(missing)} of {len(anchors)} anchor folders not found in {data_root} (anchors file "
+                        f"{bd.get('anchors_file')}, bd.anchors): they seem to belong to another data root; use a "
+                        f"separate bd.anchors_file per data root (docs/BD_RATE.md#several-data-roots)")
+    else:
+        warnings += [f"anchor folder {f} not found in {data_root}" for f in missing]
     return anchors, warnings
 
 

@@ -26,7 +26,7 @@ from pathlib import Path
 
 from . import __version__
 from . import metric_options as _mo
-from .config import ConfigError, resolve_path
+from .config import ConfigError, project_relative, resolve_path
 
 log = logging.getLogger("vcmtest")
 
@@ -160,7 +160,7 @@ def compare(anchor_res: dict, test_res: dict, cfg: dict) -> dict:
     min_pts = cfg["bd"]["min_points"]
     out = {"anchor": an, "test": tn, "sequence_name": test_res.get("sequence_name"),
            "generated": datetime.now().isoformat(timespec="seconds"), "vcmtest_version": __version__,
-           "method": METHOD, "min_points": min_pts,
+           "method": METHOD, "min_points": min_pts, "data_root": project_relative(cfg["data_root"]),
            "anchor_results": {"file": str(results_path(cfg, an)), "generated": anchor_res.get("generated")},
            "test_results": {"file": str(results_path(cfg, tn)), "generated": test_res.get("generated")},
            "encodings": {"anchor": _encoding(anchor_res), "test": _encoding(test_res)},
@@ -314,6 +314,7 @@ def _markdown(res: dict) -> str:
          "BD-rate: bitrate change of the test at equal accuracy (negative = test needs less bitrate). "
          "BD-accuracy: change of the plotted metric at equal bitrate, percentage points (for lower-is-better "
          "metrics a negative value is better).", "",
+         f"Data root: {res.get('data_root', 'not recorded')}  ",
          f"Anchor encoding: {res['encodings']['anchor']}  ", f"Test encoding: {res['encodings']['test']}", ""]
     if res.get("qp_selection"):
         L += [f"QP selection: {res['qp_selection']}", ""]
@@ -357,6 +358,10 @@ def run_pair(cfg: dict, anchor: str, test: str) -> dict:
             res[name] = json.load(f)
     out = compare(res[anchor], res[test], cfg)
     d = pair_dir(cfg, anchor, test)
+    prev = _pair_data_root(d / "bd.json") if (d / "bd.json").is_file() else None
+    if prev is not None and prev != out["data_root"]:
+        log.warning(f"BD {test} vs {anchor}: replaces the comparison from data root {prev} (now {out['data_root']}): "
+                    f"use a separate bd.out_dir per data root")
     d.mkdir(parents=True, exist_ok=True)
     _write_plots(cfg, out, d)
     with open(d / "bd.json", "w") as f:
@@ -384,6 +389,20 @@ def run_pair(cfg: dict, anchor: str, test: str) -> dict:
     return out
 
 
+def _pair_data_root(bd_json: Path | dict) -> str | None:
+    """Data root of a bd.json (recorded, or derived from its anchor results file for older files)."""
+    if not isinstance(bd_json, dict):
+        try:
+            with open(bd_json) as f:
+                bd_json = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return None
+    if bd_json.get("data_root"):
+        return bd_json["data_root"]
+    f = (bd_json.get("anchor_results") or {}).get("file")
+    return project_relative(Path(f).parents[2]) if f else None
+
+
 def write_bd_summary(cfg: dict) -> Path:
     """Collect all <out_dir>/*/bd.json into <out_dir>/summary.json (committed to git)."""
     root = resolve_path(cfg["bd"]["out_dir"])
@@ -403,17 +422,22 @@ def write_bd_summary(cfg: dict) -> Path:
                                                             if m[s]["removed_qps"]}}
                                       | ({"reason": m["reason"]} if m.get("reason") else {})
                                       for mid, m in t["models"].items()}}
-        pairs[p.parent.name] = {"anchor": r["anchor"], "test": r["test"], "generated": r["generated"],
+        pairs[p.parent.name] = {"anchor": r["anchor"], "test": r["test"], "data_root": _pair_data_root(r),
+                                "generated": r["generated"],
                                 "encodings": r["encodings"],
                                 **({"frame_size_note": r["frame_size_note"]} if r.get("frame_size_note") else {}),
                                 "tasks": tasks}
     out = root / "summary.json"
     root.mkdir(parents=True, exist_ok=True)
     ov = overview(pairs)
+    roots = sorted({p["data_root"] or "unknown" for p in pairs.values()})
+    if len(roots) > 1:
+        log.warning(f"{root} holds comparisons from several data roots ({', '.join(roots)}); summary.json and "
+                    f"overview.md average over all of them: use a separate bd.out_dir per data root")
     with open(out, "w") as f:
-        json.dump({"generated": datetime.now().isoformat(timespec="seconds"), "method": METHOD, "pairs": pairs,
-                   "overview": ov}, f, indent=1)
-    (root / "overview.md").write_text(_overview_markdown(ov))
+        json.dump({"generated": datetime.now().isoformat(timespec="seconds"), "method": METHOD, "data_roots": roots,
+                   "pairs": pairs, "overview": ov}, f, indent=1)
+    (root / "overview.md").write_text(_overview_markdown(ov, roots))
     log.info(f"BD summary: {out} ({len(pairs)} pair(s), {len(ov)} comparison(s); overview.md)")
     return out
 
@@ -477,13 +501,15 @@ def _pct(v) -> str:
     return "n/a" if v is None else f"{v:+.1f} %"
 
 
-def _overview_markdown(ov: dict) -> str:
+def _overview_markdown(ov: dict, data_roots: list[str] | None = None) -> str:
     L = ["# BD overview across sequences", "",
          "Generated by vcmtest from BD-results/summary.json. Pairs grouped by comparison (encoding spec of the test "
          "vs the anchor, sequence name removed). Per task: each sequence's mean over its models, and the overall mean "
          "over the sequences (each sequence weighs equally; n/a values left out, counts in brackets). Negative "
          "BD-rate = the test needs less bitrate for the same accuracy. Per-model values: mean over the sequences "
          "where the model was compared.", ""]
+    if data_roots:
+        L += [("Data root: " if len(data_roots) == 1 else "**Data roots (mixed):** ") + ", ".join(data_roots), ""]
     for key, g in ov.items():
         seqs = sorted(set(g["sequences"]))
         L += [f"## {key}", "", f"Sequences: {', '.join(seqs)}", "",
