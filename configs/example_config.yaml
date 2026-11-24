@@ -25,7 +25,10 @@ hota_average: class                  # tracking HOTA: class (class average) | ob
 pq_average: all                      # panoptic PQ: all (panopticapi: classes with TP+FP+FN > 0) | gt (only the
                                      # classes in the ground truth)
 depth_eval: raw                      # depth AbsRel: raw (metric models as is; relative models not plotted) |
-                                     # aligned (per-frame scale+shift fit, all models)
+                                     # aligned (per-frame scale+shift fit, all models) | median_scaled (metric
+                                     # models per-frame median scaling, relative models as aligned)
+depth_metric: abs_rel                # depth value plotted: abs_rel (AbsRel, lower is better) | one_minus_abs_rel
+                                     # (1 - AbsRel, higher is better like the other tasks; same BD-rate)
 depth_min_mm: 0                      # depth GT below this (mm) is ignored (0 is always ignored); e.g. a stereo
                                      # camera's minimum range, where the GT is extrapolated rather than measured
 obb_score: dota                      # oriented detection AP: dota (DOTA classes as annotated) | vehicle (large +
@@ -64,6 +67,7 @@ decode:
 
 plot:
   log_x: false                       # bitrate axis linear (true = log scale)
+  y_from_zero: true                  # y axis from 0 (false = fitted to the data); per sequence: y_from_zero
 
 bd:                                  # BD-rate / BD-accuracy of test encodings against an anchor encoding
   enabled: false                     # BD step after the sequences of a run (--bd: only the BD step)

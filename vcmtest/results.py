@@ -135,6 +135,7 @@ def _point(sp, q, m, mid, dec, cfg, ann_sha, qp_entry, metric_key, run_status, t
     if qp_entry.get("bitrate_error") or qp_entry.get("bitrate") is None:
         return {"qp": q.qp, "error": qp_entry.get("bitrate_error") or "bitrate unknown"}
     r = sc["result"]
+    stats_field = _mo.resolve_stats_field(stats_field, r)
     if stats_field not in r:
         return {"qp": q.qp, "error": f"stale: scores have no {stats_field} (rerun this QP)"}
     if r[stats_field] is None:
@@ -143,7 +144,7 @@ def _point(sp, q, m, mid, dec, cfg, ann_sha, qp_entry, metric_key, run_status, t
         return {"qp": q.qp, "error": why}
     return {"qp": q.qp, "bitrate": qp_entry["bitrate"], "bitrate_unit": qp_entry.get("bitrate_unit"),
             **({"bitrate_kbps": qp_entry["bitrate_kbps"]} if qp_entry.get("bitrate_kbps") is not None else {}),
-            metric_key: r[stats_field][metric_key], "stats": r["stats"],
+            metric_key: _mo.stat_value(r[stats_field], metric_key), "stats": r["stats"], "stats_field": stats_field,
             **({k: r[k] for k in _mo.point_fields() if k in r}),
             "per_class_AP": r.get("per_class_AP"), "frames": r.get("frames"),
             **({"per_class": r["per_class"]} if "per_class" in r else {}),
@@ -337,9 +338,11 @@ def write_sequence_results(sp, cfg: dict, status: dict, env: dict) -> dict:
     Returns:
         The results dict as written.
     """
+    from .config import sequence_y_from_zero
     from .plot import plot_rd
 
     res = build_sequence_results(sp, cfg, status, env)
+    y0 = sequence_y_from_zero(cfg, sp.name)
     for task, t in res["tasks"].items():
         if t.get("status") != "run" or not t.get("models"):
             continue
@@ -353,9 +356,10 @@ def write_sequence_results(sp, cfg: dict, status: dict, env: dict) -> dict:
         if len(series) == 1:
             title += f"\n{series[0]['label']}"
         png = plot_rd(series, title, f"{label} (%)", sp.results_dir / f"{sp.name}_{task}_rd.png",
-                      log_x=cfg["plot"]["log_x"], bitrate_unit=res.get("bitrate_unit"))
+                      log_x=cfg["plot"]["log_x"], bitrate_unit=res.get("bitrate_unit"), y_from_zero=y0)
         t["rd_plot"] = str(png)
-        _write_per_model_plots(sp, task, t, series, f"{label} (%)", cfg["plot"]["log_x"], res.get("bitrate_unit"))
+        _write_per_model_plots(sp, task, t, series, f"{label} (%)", cfg["plot"]["log_x"], res.get("bitrate_unit"),
+                               y0)
     out = results_json_path(sp)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".json.tmp")
@@ -373,7 +377,7 @@ def per_model_plot_path(sp, task: str, mid: str) -> Path:
 
 
 def _write_per_model_plots(sp, task: str, t: dict, series: list[dict], ylabel: str, log_x: bool,
-                           bitrate_unit: str | None = "kbps") -> None:
+                           bitrate_unit: str | None = "kbps", y_from_zero: bool = True) -> None:
     """One RD plot per model with valid points (same colour/marker as in the combined plot), written or overwritten.
     Plots are never deleted: those of models no longer configured (or without valid points now) stay on disk as
     they were last drawn; the results file references only the current ones (rd_plot)."""
@@ -384,7 +388,8 @@ def _write_per_model_plots(sp, task: str, t: dict, series: list[dict], ylabel: s
         if not any(p.get("value") is not None for p in s["points"]):
             continue
         png = plot_rd([s], f"{sp.name} - {task}\n{s['label']}", ylabel,
-                      per_model_plot_path(sp, task, s["label"]), log_x=log_x, bitrate_unit=bitrate_unit)
+                      per_model_plot_path(sp, task, s["label"]), log_x=log_x, bitrate_unit=bitrate_unit,
+                      y_from_zero=y_from_zero)
         m["rd_plot"] = str(png)
         keep.add(png.name)
 

@@ -89,7 +89,7 @@ After a run, the value is in `scores/<model_id>/QPxx.json` (`result.stats_f1`). 
 Which value is plotted is defined in **`vcmtest/metric_options.py`**:
 - `TASK_METRICS`: each task's default plotted metric (key, axis label, lower is better).
 - `METRIC_OPTIONS`: the config options that select another variant. These are the existing `ap_average`,
-  `hota_average`, `pq_average`, `depth_eval` and `obb_score`.
+  `hota_average`, `pq_average`, `depth_eval`, `depth_metric` and `obb_score`.
 
 ### Step 3: add the option to `METRIC_OPTIONS`
 ```python
@@ -112,9 +112,17 @@ That is all. With this entry the pipeline:
   (`stats_f1`) into every RD point.
 
 Notes:
-- **Order matters when a task has several options.** The first option, in registry order, whose value selects a
-  non-default variant decides. Put `det_metric` before `ap_average`, so `f1` wins and `ap_average` applies when
-  `det_metric: ap`.
+- **Order matters when a task has several options.** They combine in registry order: the stats field comes from the
+  first variant that names one, the key from the last variant that sets one, and the labels are applied in turn (a
+  callable label maps the label so far). Depth: `depth_eval` picks the stats field, `depth_metric` the key
+  (`one_minus_AbsRel`) and rewrites the label. For `det_metric: f1` (key `F1`, its own stats field) put it before
+  `ap_average`, so its stats field wins.
+- **Derived keys:** a value computed from a stats dict instead of stored in it (`DERIVED_KEYS`, e.g.
+  `one_minus_AbsRel`) needs no scoring change; `stat_value()` reads stored and derived keys.
+- **Per-model stats fields:** a variant may name a virtual stats field that depends on the model's result
+  (`RESOLVED_FIELDS`, e.g. `depth_eval: median_scaled` -> `stats_median_or_aligned` = `stats_median_scaled` for
+  metric depth models, `stats_aligned` for relative ones). `resolve_stats_field()` maps it per result when the RD
+  points are built (the point records the real `stats_field`) and per point in the extended BD analysis.
 - **Lower-is-better metrics** (errors, like depth AbsRel): set `lower_is_better=True` on the variant (or on the
   `TaskMetric`). The sanity check then expects the value to *rise* with QP.
 - **`label`** may also be a function of the task's default label, e.g. `ap_average: object`:

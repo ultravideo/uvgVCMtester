@@ -77,7 +77,7 @@ tests still run with the anchor's overrides. To run a folder without them, remov
 Both sides must be measured the same way. The two results files are compared per task and model:
 
 - **Task skipped** (with the reason) when the two sides differ in: the plotted metric key or its options
-  (`ap_average`, `hota_average`, `pq_average`, `depth_eval`, `obb_score`), `classes`, `lpr_iou`, `depth_min_mm`,
+  (`ap_average`, `hota_average`, `pq_average`, `depth_eval`, `depth_metric`, `obb_score`), `classes`, `lpr_iou`, `depth_min_mm`,
   annotation version or fingerprint (sha256), or bitrate unit (bitrates are compared as given, never converted).
   A task run on one side only is skipped as well.
 - **Model n/a** when its weights (sha256) or frame counts differ.
@@ -113,8 +113,10 @@ Results:
 
 - **BD-rate (%)**: bitrate change of the test at equal task accuracy. Negative = the test needs less bitrate
   (better), for every metric direction.
-- **BD-accuracy (pp)**: change of the plotted metric at equal bitrate, in percentage points. Positive = higher value:
-  better for accuracies, worse for lower-is-better metrics such as depth AbsRel.
+- **BD-accuracy (pp)**: change of the plotted metric at equal bitrate, in percentage points. Positive = the test is
+  better, for every metric direction: for lower-is-better metrics such as depth AbsRel the sign is flipped (anchor −
+  test). With `depth_metric: one_minus_abs_rel` depth is plotted as 1 − AbsRel (higher is better): same BD-rate and
+  same BD-accuracy as AbsRel.
 
 Formulas: [METRICS.md](METRICS.md#bd-rate-and-bd-accuracy).
 

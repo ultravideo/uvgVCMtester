@@ -139,7 +139,7 @@ def breakdown(task: str, t: dict, ta: dict, tt: dict, sel: dict, min_pts: int) -
 
     def comp_get(name):
         def get(p):
-            v = (p.get(field) or {}).get(name)
+            v = (p.get(_mo.resolve_stats_field(field, p)) or {}).get(name)
             return None if v is None or (name in _NEG_IS_MISSING and v < 0) else v
         return get
 

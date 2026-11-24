@@ -13,7 +13,7 @@ globally in the config and per sequence (`sequence_overrides.<seq>`).
 | Keypoints | COCO keypoint AP@[.50:.95] (OKS) | – | `QPxx_keypoints.json` |
 | Panoptic segmentation | PQ | `pq_average: all \| gt` | `QPxx_panoptic.json` |
 | Semantic segmentation | mIoU | – | `QPxx_panoptic.json` (shared) |
-| Depth | AbsRel (lower is better) | `depth_eval: raw \| aligned`, `depth_min_mm` | `QPxx_depth.json` |
+| Depth | AbsRel (lower is better) or 1 − AbsRel | `depth_eval: raw \| aligned \| median_scaled`, `depth_metric: abs_rel \| one_minus_abs_rel`, `depth_min_mm` | `QPxx_depth.json` |
 | Oriented object detection | rotated-box AP@[.50:.95] | `obb_score: dota \| vehicle`, `obb_classes` | `QPxx_oriented_detection.json` |
 | Licence plate recognition | plate accuracy (end to end) | `lpr_iou` | `QPxx_plate_recognition.json` |
 | Race bib recognition | bib accuracy (end to end) | `lpr_iou` | `QPxx_bib_recognition.json` |
@@ -103,7 +103,20 @@ instance segmentation, tracking, panoptic and semantic segmentation ([Class sele
     metric models and in inverse-depth space (fit to 1/GT) for relative models (affine-invariant inverse depth,
     MiDaS protocol); aligned depth clamped to [1 mm, 100 m].
 - **Plotted** (`depth_eval`): `raw` (default) plots `stats` (relative models have no point); `aligned` plots
-  `stats_aligned`.
+  `stats_aligned`; `median_scaled` plots `stats_median_scaled` for metric models and `stats_aligned` for relative
+  models (they have no scale-only variant: their inverse depth has an unknown shift as well), chosen per model from
+  its `depth_output` (each RD point records its `stats_field`). One plot then mixes two corrections: scale only for
+  metric models, scale + shift for relative ones. AuditoriumWalk and UnderPark use `median_scaled` (owner,
+  2026-11-24): on degenerate low-rate predictions (DA-V2 Metric Small) the per-frame scale + shift fit in depth
+  space hits a floor (UnderPark QP54–60) or makes the error larger than the raw one (AuditoriumWalk QP60, aligned
+  AbsRel 0.985 vs raw 0.54), while the median-scaled error rises steadily with QP.
+- **Plotted value** (`depth_metric`): `abs_rel` (default) plots AbsRel (lower is better); `one_minus_abs_rel` plots
+  1 − AbsRel (key `one_minus_AbsRel`, higher is better, as the other tasks' accuracies), computed from the stats
+  field selected by `depth_eval` when the results are built (not stored in the scores files, no rescoring). It is an
+  error complement, not a bounded accuracy: negative when AbsRel > 1, and a ratio of two values (e.g. "keeps 90 %")
+  understates the error change (0.96 → 0.86 = error × 3.2). Same Pareto points and BD-rate as AbsRel; BD-accuracy
+  has the same value (positive = better for both, see BD-accuracy below). AuditoriumWalk and UnderPark use
+  `one_minus_abs_rel` (owner, 2026-11-24).
 
 ## Oriented object detection
 
@@ -188,7 +201,9 @@ Test encoding against an anchor encoding of the same source, per task and model 
   accuracy, over the overlapping accuracy range. Negative = the test needs less bitrate at equal accuracy (for any
   metric direction).
 - **BD-accuracy (pp)** = mean of accuracy_test − accuracy_anchor as functions of log10 bitrate, over the overlapping
-  log-bitrate range. Positive = higher value (better for accuracies, worse for lower-is-better metrics).
+  log-bitrate range, for higher-is-better metrics; for lower-is-better metrics (depth AbsRel) the sign is flipped
+  (accuracy_anchor − accuracy_test). Positive = the test is better, for every metric direction (since 2026-11-24;
+  before, positive meant a higher value, i.e. worse for AbsRel; no depth BD pair existed then).
 - **n/a** when a curve has fewer than `bd.min_points` (default 4) Pareto points, or the ranges do not overlap.
 - **Skipped:** a task when the two results differ in metric key, metric options, classes, `lpr_iou`,
   `depth_min_mm`, annotation version / fingerprint or bitrate unit; a model when its weights or frame counts differ.

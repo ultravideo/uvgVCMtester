@@ -6,7 +6,8 @@ per task and model:
   BD-rate (%)      = mean log10-bitrate difference test - anchor over the overlapping accuracy range,
                      as 100 * (10^mean - 1); negative = the test needs less bitrate for the same accuracy
   BD-accuracy (pp) = mean accuracy difference test - anchor (plotted metric, %) over the overlapping log10-bitrate
-                     range; positive = higher value (for lower-is-better metrics, e.g. depth AbsRel: worse)
+                     range; positive = the test is better, for every metric direction (lower-is-better metrics,
+                     e.g. depth AbsRel: anchor - test)
 Curves are first reduced to their Pareto front (dominated points removed: another point with lower or equal
 bitrate and better or equal accuracy, one strictly), then interpolated with PCHIP (piecewise cubic Hermite) and
 integrated exactly over the overlap. Fewer than bd.min_points Pareto points or no overlap -> n/a with the reason.
@@ -260,6 +261,8 @@ def _compare_model(ma: dict, mt: dict, key: str, lib: bool, sel: dict, min_pts: 
     (ka, _), (kt, _) = sides["anchor"], sides["test"]
     rec["bd_rate_pct"], info_r = bd_rate(ka, kt)
     rec["bd_accuracy_pp"], info_a = bd_accuracy(ka, kt)
+    if lib and rec["bd_accuracy_pp"] is not None:
+        rec["bd_accuracy_pp"] = -rec["bd_accuracy_pp"]        # positive = test better, for every metric direction
     for k, v in info_r.items():
         rec["bd_rate_reason" if k == "reason" else k] = v
     for k, v in info_a.items():
@@ -279,9 +282,11 @@ def _fmt(v, nd=2, sign=True) -> str:
 
 
 def _write_plots(cfg: dict, res: dict, d: Path) -> None:
+    from .config import sequence_y_from_zero
     from .plot import plot_bd
     log_x = cfg["bd"]["log_x"]
     unit = res.get("bitrate_unit")
+    y0 = sequence_y_from_zero(cfg, res["test"])      # the test inherits the anchor's sequence_overrides
     for task, t in res["tasks"].items():
         if t.get("status") != "compared" or not t["models"]:
             continue
@@ -295,11 +300,11 @@ def _write_plots(cfg: dict, res: dict, d: Path) -> None:
                            "removed": [byq[q] for q in m[side]["removed_qps"]]}
             series.append(s)
             m["rd_plot"] = str(plot_bd([s], f"{task} - {mid}\ntest {res['test']}\nanchor {res['anchor']}", ylabel,
-                                       d / "rd_per_model" / f"{task}_{mid}_rd.png", log_x, unit))
+                                       d / "rd_per_model" / f"{task}_{mid}_rd.png", log_x, unit, y0))
         mean = t["mean"]["bd_rate_pct"]
         t["rd_plot"] = str(plot_bd(series, f"{task} - mean BD-rate {_fmt(mean)} %\ntest {res['test']}\n"
                                            f"anchor {res['anchor']}", ylabel, d / f"{task}_rd.png",
-                                   log_x, unit))
+                                   log_x, unit, y0))
 
 
 def _qps_cell(m: dict, side: str) -> str:
@@ -312,8 +317,8 @@ def _markdown(res: dict) -> str:
     L = [f"# BD comparison: {res['test']} vs anchor {res['anchor']}", "",
          f"Generated {res['generated']} (vcmtest {res['vcmtest_version']}). {res['method']}.", "",
          "BD-rate: bitrate change of the test at equal accuracy (negative = test needs less bitrate). "
-         "BD-accuracy: change of the plotted metric at equal bitrate, percentage points (for lower-is-better "
-         "metrics a negative value is better).", "",
+         "BD-accuracy: change of the plotted metric at equal bitrate, percentage points (positive = test better; "
+         "for lower-is-better metrics the sign is flipped: anchor - test).", "",
          f"Data root: {res.get('data_root', 'not recorded')}  ",
          f"Anchor encoding: {res['encodings']['anchor']}  ", f"Test encoding: {res['encodings']['test']}", ""]
     if res.get("qp_selection"):

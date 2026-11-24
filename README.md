@@ -60,7 +60,7 @@ or per sequence; all variants are always stored). Definitions, ground-truth hand
 - **Keypoints:** COCO keypoint AP@[.50:.95] (OKS).
 - **Panoptic segmentation:** PQ; SQ, RQ stored (`pq_average`: all classes as panopticapi | classes with ground truth only).
 - **Semantic segmentation:** mIoU, from the panoptic predictions.
-- **Depth:** AbsRel, lower is better; RMSE, δ1 etc. stored (`depth_eval`: raw | per-frame aligned; `depth_min_mm`).
+- **Depth:** AbsRel, lower is better, or 1 − AbsRel (`depth_metric`); RMSE, δ1 etc. stored (`depth_eval`: raw | per-frame aligned | median-scaled; `depth_min_mm`).
 - **Oriented object detection:** rotated-box AP@[.50:.95]; DOTA mAP@0.5 stored (`obb_score`: DOTA classes | vehicles
   merged; `obb_classes`).
 - **Licence plate recognition:** plate accuracy = plates found and read exactly / all plates (`lpr_iou`).
@@ -215,7 +215,7 @@ Main option groups:
 - **Tasks and models:** `tasks` (a task runs on a sequence only if its annotations exist); model ids as printed by
   `--plan`. For AP use a low `score_threshold` (0.05); trackers need 0.1. Models: [docs/MODELS.md](docs/MODELS.md).
 - **Metric variants** (all always stored, one plotted): `ap_average`, `hota_average`, `pq_average`, `depth_eval`,
-  `depth_min_mm`, `obb_score`, `lpr_iou`. See [Integrated metrics](#integrated-metrics).
+  `depth_metric`, `depth_min_mm`, `obb_score`, `lpr_iou`. See [Integrated metrics](#integrated-metrics).
 - **`input_size`:** network input size per task and model (YOLO26, RF-DETR, RT-DETR).
 - **`sequence_overrides`:** per sequence `qps`, `tasks`, `models`, `classes`, `input_size`, metric variants, ...
 - **`decode`**, **`inference`**, **`plot`**, **`bd`**: decoder and colour conversion, timeouts, plot axes, BD comparison.

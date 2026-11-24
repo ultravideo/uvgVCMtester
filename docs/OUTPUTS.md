@@ -50,7 +50,8 @@ on disk (all QPs run so far), so a run with new QPs extends the curve.
 ## Plots
 
 - `<seq>_<task>_rd.png`: one line per model, the plotted metric vs bitrate in the sequence's unit; linear bitrate
-  axis (`plot.log_x: true` for log).
+  axis (`plot.log_x: true` for log); y axis from 0, or fitted to the data with `plot.y_from_zero: false` (also per
+  sequence).
 - `rd_per_model/<seq>_<task>_<model_id>_rd.png`: one model, with the same colour and marker as in the combined plot.
   Never deleted: plots of models no longer configured, or without valid points, stay as last drawn.
 

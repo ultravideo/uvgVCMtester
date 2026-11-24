@@ -125,7 +125,8 @@ sequence. Definitions: [METRICS.md](METRICS.md).
 | `ap_average` | `class` | detection / instance segmentation AP: `class` (COCO mean of per-class AP) or `object` (object-weighted, one PR curve over the classes) |
 | `hota_average` | `class` | tracking: `class` (class average) or `object` (TrackEval detection-averaged) |
 | `pq_average` | `all` | panoptic PQ: `all` (panopticapi, classes with TP+FP+FN > 0) or `gt` (classes with ground truth only) |
-| `depth_eval` | `raw` | depth: `raw` (metric models as is; relative models not plotted) or `aligned` (per-frame scale + shift, all models) |
+| `depth_eval` | `raw` | depth: `raw` (metric models as is; relative models not plotted), `aligned` (per-frame scale + shift, all models) or `median_scaled` (metric models per-frame median scaling, relative models scale + shift as `aligned`) |
+| `depth_metric` | `abs_rel` | depth plotted value: `abs_rel` (AbsRel, lower is better) or `one_minus_abs_rel` (1 − AbsRel, higher is better like the other tasks; derived, no rescoring; same BD-rate) |
 | `depth_min_mm` | `0` | depth ground truth below this (mm) is ignored (0 is always ignored), e.g. a stereo camera's minimum range |
 | `obb_score` | `dota` | oriented detection: `dota` (classes as annotated) or `vehicle` (large + small vehicle merged) |
 | `lpr_iou` | `0.5` | plate / bib recognition: box IoU for a prediction to match a ground-truth box |
@@ -191,8 +192,9 @@ sequence_overrides:
   segmentation the list selects the thing classes only: the listed things and all stuff classes enter the PQ / mIoU
   averages. A mapping `{<task>: [names]}` restricts only the tasks it names (detection, instance_segmentation,
   tracking, panoptic_segmentation, semantic_segmentation).
-- **Metric options** (`ap_average`, `hota_average`, `pq_average`, `depth_eval`, `depth_min_mm`, `obb_score`,
+- **Metric options** (`ap_average`, `hota_average`, `pq_average`, `depth_eval`, `depth_metric`, `depth_min_mm`, `obb_score`,
   `lpr_iou`) override the global value on this sequence.
+- **`y_from_zero`** overrides `plot.y_from_zero` on this sequence (AuditoriumWalk, UnderPark: `false`).
 
 ## BD anchors and inheritance
 
@@ -244,6 +246,7 @@ predictions. PNG frames without a decode marker are user-provided and used as th
 | Key | Default | Meaning |
 |---|---|---|
 | `plot.log_x` | `false` | bitrate axis of the sequence RD plots: linear, or log scale with `true` |
+| `plot.y_from_zero` | `true` | y axis of the RD and BD plots from 0; `false` = fitted to the data (5 % margin). Also per sequence (`sequence_overrides.<seq>.y_from_zero`; BD plots use the test's value) |
 
 ## BD comparison
 

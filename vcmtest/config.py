@@ -86,15 +86,15 @@ DEFAULTS: dict[str, Any] = {
     "framerate": None,          # fallback when data/<seq>/info.json has no "framerate"
     "device": "cuda:0",
     "seed": 0,
-    # + the plotted-metric options of vcmtest/metric_options.py (ap_average, pq_average, depth_eval, obb_score),
-    #   added below
+    # + the plotted-metric options of vcmtest/metric_options.py (ap_average, hota_average, pq_average, depth_eval,
+    #   depth_metric, obb_score), added below
     "lpr_iou": 0.5,             # plate_recognition / bib_recognition: box IoU for a predicted box to match a GT one
     "depth_min_mm": 0,          # depth GT: pixels with depth < this (mm) are ignored (0 = only zeros, = no depth)
     "input_size": {},           # {<task>: {<model_id>: N}}: network input size on every sequence (sequence_overrides.
                                 # <seq>.input_size wins per task and model; null there = the model's default)
     "sequence_overrides": {},   # {<seq>: {annotations, framerate, qps, tasks, models, classes, ap_average,
-                                #          pq_average, depth_min_mm, depth_eval, remove_depth_maps, obb_classes,
-                                #          obb_score, lpr_iou, input_size}}
+                                #          pq_average, depth_min_mm, depth_eval, depth_metric, remove_depth_maps,
+                                #          obb_classes, obb_score, lpr_iou, input_size}}
     "decode": {
         "matrix": "bt709",      # bt709 | bt601 | bt2020
         "range": "full",        # full | limited
@@ -108,6 +108,7 @@ DEFAULTS: dict[str, Any] = {
     },
     "plot": {
         "log_x": False,         # bitrate axis linear (true = log scale)
+        "y_from_zero": True,    # y axis starts at 0 (false = fitted to the data); also per sequence
     },
     "inference": {
         "timeout_s": 7200,      # per (sequence, QP, model)
@@ -129,7 +130,8 @@ DEFAULTS: dict[str, Any] = {
 DEFAULTS.update({name: o.default for name, o in _metric_options.METRIC_OPTIONS.items()})   # plotted-metric options
 
 _SEQ_OVERRIDE_KEYS = {"annotations", "framerate", "tasks", "models", "classes", "qps", "depth_min_mm",
-                      "remove_depth_maps", "obb_classes", "lpr_iou", "input_size"} | set(_metric_options.METRIC_OPTIONS)
+                      "remove_depth_maps", "obb_classes", "lpr_iou", "input_size",
+                      "y_from_zero"} | set(_metric_options.METRIC_OPTIONS)
 # input_size (global) and sequence_overrides.<seq>.input_size: {<task>: {<model_id>: N}} = network input size for
 # that model (global: on every sequence; the sequence's entry wins per task and model, null = the model's default)
 # (N = positive multiple of 32; Ultralytics imgsz: the longer frame side is resized to N, letterboxed;
@@ -241,6 +243,12 @@ def sequence_remove_depth_maps(cfg: dict, seq: str) -> bool:
     return bool(ov.get("remove_depth_maps", cfg["inference"].get("remove_depth_maps", False)))
 
 
+def sequence_y_from_zero(cfg: dict, seq: str) -> bool:
+    """RD plots of a sequence: y axis from 0 (true) or fitted to the data: sequence override > plot.y_from_zero."""
+    ov = (cfg.get("sequence_overrides") or {}).get(seq) or {}
+    return bool(ov.get("y_from_zero", (cfg.get("plot") or {}).get("y_from_zero", True)))
+
+
 def _valid_depth_min(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
 
@@ -288,6 +296,8 @@ def _validate(cfg: dict) -> None:
         raise ConfigError("bd.enabled must be true or false")
     if not isinstance(bd["log_x"], bool):
         raise ConfigError("bd.log_x must be true or false")
+    if not isinstance(cfg["plot"].get("y_from_zero"), bool):
+        raise ConfigError("plot.y_from_zero must be true or false")
     if not isinstance(bd["extended"], bool):
         raise ConfigError("bd.extended must be true or false")
     if not isinstance(bd["min_points"], int) or isinstance(bd["min_points"], bool) or bd["min_points"] < 2:
@@ -304,6 +314,8 @@ def _validate(cfg: dict) -> None:
     for seq, ov in (cfg["sequence_overrides"] or {}).items():
         if not isinstance(ov, dict) or set(ov) - _SEQ_OVERRIDE_KEYS:
             raise ConfigError(f"sequence_overrides.{seq}: allowed keys {sorted(_SEQ_OVERRIDE_KEYS)}")
+        if "y_from_zero" in ov and not isinstance(ov["y_from_zero"], bool):
+            raise ConfigError(f"sequence_overrides.{seq}.y_from_zero must be true or false")
 
     d = cfg["decode"]
     if d["matrix"] not in ("bt709", "bt601", "bt2020"):

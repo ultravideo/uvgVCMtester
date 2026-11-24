@@ -12,9 +12,10 @@ SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
 
 
 def plot_rd(series: list[dict], title: str, metric_label: str, out_path: Path, log_x: bool = False,
-            bitrate_unit: str | None = "kbps") -> Path:
+            bitrate_unit: str | None = "kbps", y_from_zero: bool = True) -> Path:
     """series: [{"label": str, "slot": int, "points": [{"qp", "bitrate", "value"}]}]; value in %.
-    bitrate_unit: x-axis unit label (None = "Bitrate" without a unit)."""
+    bitrate_unit: x-axis unit label (None = "Bitrate" without a unit).
+    y_from_zero: false = y axis fitted to the data."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -37,7 +38,7 @@ def plot_rd(series: list[dict], title: str, metric_label: str, out_path: Path, l
         drawn += 1
         for p in pts:
             qp_at.setdefault(p["qp"], p["bitrate"])
-    _style_axes(ax, metric_label, log_x, bitrate_unit)
+    _style_axes(ax, metric_label, log_x, bitrate_unit, y_from_zero)
     n_rows = _qp_labels(ax, qp_at)
     ax.set_title(title, color=INK, fontsize=11, loc="left", pad=8 + 10 * n_rows)
     if drawn >= 2:
@@ -51,8 +52,9 @@ def plot_rd(series: list[dict], title: str, metric_label: str, out_path: Path, l
     return out_path
 
 
-def _style_axes(ax, metric_label: str, log_x: bool, bitrate_unit: str | None) -> None:
-    """Shared axis styling of the RD plots: recessive grid and spines, bitrate axis from 0 (or log), y from <= 0."""
+def _style_axes(ax, metric_label: str, log_x: bool, bitrate_unit: str | None, y_from_zero: bool = True) -> None:
+    """Shared axis styling of the RD plots: recessive grid and spines, bitrate axis from 0 (or log), y from <= 0
+    (y_from_zero) or fitted to the data (matplotlib's autoscale with its 5 % margin)."""
     if log_x:
         ax.set_xscale("log")
         from matplotlib.ticker import FuncFormatter
@@ -71,8 +73,9 @@ def _style_axes(ax, metric_label: str, log_x: bool, bitrate_unit: str | None) ->
     ax.tick_params(which="both", colors=INK2, labelsize=8)
     if not log_x:
         ax.set_xlim(left=0)
-    ymin = ax.get_ylim()[0]
-    ax.set_ylim(bottom=min(0, ymin))
+    if y_from_zero:
+        ymin = ax.get_ylim()[0]
+        ax.set_ylim(bottom=min(0, ymin))
 
 
 def _qp_labels(ax, qp_at: dict[int, float], min_gap: float = 0.06, max_rows: int = 4) -> int:
@@ -97,7 +100,7 @@ def _qp_labels(ax, qp_at: dict[int, float], min_gap: float = 0.06, max_rows: int
 
 
 def plot_bd(series: list[dict], title: str, metric_label: str, out_path: Path, log_x: bool = False,
-            bitrate_unit: str | None = "kbps") -> Path:
+            bitrate_unit: str | None = "kbps", y_from_zero: bool = True) -> Path:
     """Anchor vs test RD curves (BD comparison). series: [{"label", "slot", "anchor": curve, "test": curve}],
     curve = {"kept": [(bitrate, value %)], "removed": [(bitrate, value %)]}. Anchor solid, test dashed, same colour
     and marker per model; Pareto points filled and joined, removed (dominated) points hollow and not joined."""
@@ -131,7 +134,7 @@ def plot_bd(series: list[dict], title: str, metric_label: str, out_path: Path, l
         if drawn:
             handles.append(Line2D([], [], color=col, linewidth=2, marker=mk, markersize=6,
                                   markeredgecolor=SURFACE, label=s["label"]))
-    _style_axes(ax, metric_label, log_x, bitrate_unit)
+    _style_axes(ax, metric_label, log_x, bitrate_unit, y_from_zero)
     ax.set_title(title, color=INK, fontsize=9, loc="left", pad=8)
     handles += [Line2D([], [], color=INK2, linewidth=1.5, linestyle="-", label="anchor"),
                 Line2D([], [], color=INK2, linewidth=1.5, linestyle="--", label="test")]
